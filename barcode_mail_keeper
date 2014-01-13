@@ -120,7 +120,7 @@ sub parse_file_and_send_message {
 		);
 
 	}
-	$mail->send( 'smtp', $conf->{mail}->{smtp} || 'localhost' );
+	$mail->send( 'smtp', $conf->{mail}->{smtp} || 'localhost' , AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
 }
 
 sub SavePartStream {
