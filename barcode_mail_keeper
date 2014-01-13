@@ -1,0 +1,207 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use utf8;
+use threads;
+use threads::shared;
+
+use File::Basename 'dirname';
+use File::Spec;
+use Image::Magick;
+use Barcode::ZBar;
+use Data::Dumper;
+use Net::POP3;
+use MIME::Lite;
+use Carp;
+use Email::MIME;
+use File::Basename;
+use POSIX qw(setsid);
+
+# мониторинг осуществляется демоном incron (запись в  incrontab <целевая папка> IN_CREATE /home/asda/workspace/Home/script/arhiv/ImageMonitor.pl $@ $@/$#)
+
+my $tmp_dir  = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
+my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
+our $conf = do "$conffile";
+our $resolution = $conf->{resolution} || 200;
+
+#my $logfile=join "/",File::Spec->splitdir(dirname(__FILE__)),'scan.log';
+#open (STDOUT, ">> $logfile") or die "do not forward STDOUT to $logfile...\n";
+#open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
+sub main {
+
+	#daemonize myself
+	chdir '/' or die "Can't chdir to /: $!";
+	umask 0;
+	open STDIN,  '/dev/null'  or die "Can't read /dev/null: $!";
+	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
+	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
+	defined( my $pid = fork ) or die "Can't fork: $!";
+	exit if $pid;
+	setsid or die "Can't start a new session: $!";
+
+	while (1) {
+		load_messages();
+		sleep 5;
+	}
+
+}
+
+sub load_messages() {
+	my $pop = Net::POP3->new( $conf->{mail}->{pop3_server} );
+	my $num_messages = $pop->login( $conf->{mail}->{username}, $conf->{mail}->{password} );
+	for my $i ( 1 .. $num_messages ) {
+
+		my $msg = $pop->get($i);
+
+		parse_message($msg);
+
+		$pop->delete($i);
+	}
+	$pop->quit;
+	undef $pop;
+
+	unlink "$tmp_dir/*";
+}
+
+sub parse_message($) {
+	my $msg = shift;
+	my $em = Email::MIME->new( join '', @$msg );
+	for ( my @parts = $em->parts ) {
+
+		#print $_->content_type, "\n";
+		next unless $_->content_type =~ m(^application/pdf)i;
+		my $filename = basename( $_->filename || '' );
+		my $basefilename = $filename || 'UNNAMED';
+		my $cnt = 0;
+		while ( -e "$tmp_dir/$filename" ) {
+			my ( $d, $m, $y ) = (localtime)[ 3 .. 5 ];
+			$filename = sprintf( "%s_%04d%02d%02d_%04d", $basefilename, $y + 1900, $m + 1, $d, ++$cnt );
+		}
+		open my $fh, ">", "$tmp_dir/$filename" or croak $!;
+		binmode $fh;
+		print $fh $_->body;
+		close $fh;
+		parse_file_and_send_message("$tmp_dir/$filename");
+	}
+}
+
+sub parse_file_and_send_message {
+	my ($file) = @_;
+
+	my $mail;
+
+	my $barcode = get_barcode_from_file($file);
+	if ($barcode) {
+		$mail = MIME::Lite->new(
+			To => Encode::encode( 'mime-header', " <$conf->{mail}->{to}>" ),
+			From     => " <$conf->{mail}->{from}>",
+			Encoding => 'binary',
+			Type     => 'text/plain;charset="utf-8"',
+			Subject  => "OK: " . $barcode,
+			Data     => "OK: " . $barcode
+		);
+		$mail->attach(
+			Type        => 'application/pdf',
+			Filename    => "$barcode.pdf",
+			Path        => "$file",
+			Disposition => 'attachment'
+		);
+
+	} else {
+		$file =~ /^.+\/(.+)\.pdf/;
+		$mail = MIME::Lite->new(
+			To => Encode::encode( 'mime-header', " <$conf->{mail}->{to}>" ),
+			From     => " <$conf->{mail}->{from}>",
+			Encoding => 'binary',
+			Type     => 'text/plain;charset="utf-8"',
+			Subject  => "ERROR: $1.pdf",
+			Data     => "ERROR: $1.pdf"
+		);
+
+	}
+	$mail->send( 'smtp', $conf->{mail}->{smtp} || 'localhost' );
+}
+
+sub SavePartStream {
+	my ( $magick, $lastId, $SavePath, $SaveId, $barcode ) = @_;
+	$barcode =~ s/--/-/g;
+	my $stream = Image::Magick->new( depth => 8, density => $resolution );
+	for ( my $ii = 0 ; $ii <= $lastId ; $ii++ ) {
+		push @$stream, $magick->[$ii] if $magick->[$ii];
+	}
+	$stream->Write( filename => "$SavePath/document" . $SaveId . ".jpg", compression => 'JPEG', quality => '80' );
+}
+
+#Сохраняем в файл
+#Путь,Что сохраняем
+sub SaveInfoInFile {
+	{
+		my $SavePath = shift;
+		my $data     = shift;
+		my $SaveId   = shift || "";
+		my $fh;
+		open $fh, '>:utf8', $SavePath . "/currentinfo$SaveId.txt" or warn "Save current error", last;
+		print $fh $data;
+		close($fh);
+	}
+}
+
+sub FindBarcode {
+	my ( $Raw, $width, $hight ) = @_;
+
+	# wrap image data
+	my $image = Barcode::ZBar::Image->new();
+
+	$image->set_format('Y800');
+	$image->set_size( $width, $hight );
+	$image->set_data($Raw);
+
+	my $scanner = Barcode::ZBar::ImageScanner->new();
+
+	# Включаем все возможные декодеры (по умолчанию EAN13)
+	$scanner->parse_config( $conf->{typeEANcodes} || "enable" );    #Apply a decoder configuration setting. See the documentation for zbarcam/zbarimg for available configuration options.
+	                                                                # scan the image for barcodes
+	my $n       = $scanner->scan_image($image);
+	my @barcode = ();
+
+	# extract results
+	foreach my $symbol ( $image->get_symbols() ) {
+		push @barcode, $symbol->get_data();
+
+	}
+
+	# clean up
+	undef($image);
+	return @barcode;
+}
+
+sub LoadPic {
+	my ( $magick, $file ) = @_;
+	$conf->{mincolors} = 16000 unless $conf->{mincolors};
+	my $calk_listov = 0;
+	$magick->Read($file) && die;
+	return scalar( @{$magick} )
+}
+
+sub get_barcode_from_file {
+	my $file = shift;
+
+	my $magick = Image::Magick->new( depth => 8, density => $resolution, type => "Grayscale" );
+
+	my $listov = LoadPic( $magick, $file );    #кол-во листов исходя из кол-ва файлов
+
+	my $barcode   = "-";
+	my @BarRezult = ();
+
+	my @Size = $magick->Get(qw(columns rows));
+	my $i;
+	for ( $i = 0 ; $magick->[$i] ; $i++ ) {
+		my $raw = $magick->[$i]->ImageToBlob( magick => 'GRAY', depth => 8 );
+		push @BarRezult, FindBarcode( $raw, @Size );
+	}
+
+	return $BarRezult[0];
+}
+
+exit( &main(@ARGV) );
