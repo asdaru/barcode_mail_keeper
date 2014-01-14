@@ -6,6 +6,7 @@ use utf8;
 use threads;
 use threads::shared;
 use v5.10;
+$| = 1;
 
 use File::Basename 'dirname';
 use File::Spec;
@@ -216,8 +217,10 @@ sub daemonize {
 	chdir '/' or die "Can't chdir to /: $!";
 	umask 0;
 	open STDIN,  '/dev/null'  or die "Can't read /dev/null: $!";
-	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
-	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
+	open STDOUT, ">>$tmp_dir/parse.log" or die "Can't write to $tmp_dir/parse.log: $!";
+	open STDERR, ">>$tmp_dir/err.log" or die "Can't write to $tmp_dir/err.log: $!";
+#	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
+#	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
 	defined( my $pid = fork ) or die "Can't fork: $!";
 	exit if $pid;
 	setsid or die "Can't start a new session: $!";
