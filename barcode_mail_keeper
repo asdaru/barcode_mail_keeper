@@ -22,7 +22,7 @@ use POSIX qw(setsid);
 
 # мониторинг осуществляется демоном incron (запись в  incrontab <целевая папка> IN_CREATE /home/asda/workspace/Home/script/arhiv/ImageMonitor.pl $@ $@/$#)
 
-our $tmp_dir  = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
+our $tmp_dir = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
 our $conf       = do "$conffile";
 our $resolution = $conf->{resolution} || 200;
@@ -33,13 +33,16 @@ our $debug      = 0;
 #open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
 sub main {
 	$debug = "debug" ~~ [@_];
-	
+
 	say "Debug mode" if $debug;
 
 	daemonize() unless $debug;
 
 	while (1) {
-		load_messages();
+		eval {
+			load_messages();
+		};
+		warn "ERROR $@" if ($@);
 		sleep 5;
 	}
 
@@ -65,7 +68,7 @@ sub load_messages() {
 
 	undef $pop;
 
-	unlink  glob "$tmp_dir/*";
+	unlink glob "$tmp_dir/*";
 }
 
 sub parse_message($) {
@@ -126,7 +129,7 @@ sub parse_file_and_send_message {
 	}
 	$mail->send( 'smtp', $conf->{mail}->{smtp_server} || 'localhost' );    #, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
 	say "Message sended to $conf->{mail}->{to} from $conf->{mail}->{from}" if $debug;
-	
+
 }
 
 sub SavePartStream {
@@ -216,11 +219,12 @@ sub daemonize {
 	#daemonize myself
 	chdir '/' or die "Can't chdir to /: $!";
 	umask 0;
-	open STDIN,  '/dev/null'  or die "Can't read /dev/null: $!";
+	open STDIN,  '/dev/null'                            or die "Can't read /dev/null: $!";
 	open STDOUT, ">>/tmp/barcode_mail_keeper_parse.log" or die "Can't write to /tmp/barcode_mail_keeper_parse.log: $!";
 	open STDERR, ">>/tmp/barcode_mail_keeper_error.log" or die "Can't write to /tmp/barcode_mail_keeper_error.log: $!";
-#	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
-#	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
+
+	#	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
+	#	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
 	defined( my $pid = fork ) or die "Can't fork: $!";
 	exit if $pid;
 	setsid or die "Can't start a new session: $!";
