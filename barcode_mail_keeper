@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 use threads;
 use threads::shared;
+use v5.10;
 
 use File::Basename 'dirname';
 use File::Spec;
@@ -22,23 +23,19 @@ use POSIX qw(setsid);
 
 my $tmp_dir  = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
-our $conf = do "$conffile";
+our $conf       = do "$conffile";
 our $resolution = $conf->{resolution} || 200;
+our $debug      = 0;
 
 #my $logfile=join "/",File::Spec->splitdir(dirname(__FILE__)),'scan.log';
 #open (STDOUT, ">> $logfile") or die "do not forward STDOUT to $logfile...\n";
 #open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
 sub main {
+	$debug = "debug" ~~ [@_];
+	
+	say "Debug mode" if $debug;
 
-	#daemonize myself
-	chdir '/' or die "Can't chdir to /: $!";
-	umask 0;
-	open STDIN,  '/dev/null'  or die "Can't read /dev/null: $!";
-	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
-	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
-	defined( my $pid = fork ) or die "Can't fork: $!";
-	exit if $pid;
-	setsid or die "Can't start a new session: $!";
+	daemonize() unless $debug;
 
 	while (1) {
 		load_messages();
@@ -50,7 +47,12 @@ sub main {
 sub load_messages() {
 	my $pop = Net::POP3->new( $conf->{mail}->{pop3_server} );
 	my $num_messages = $pop->login( $conf->{mail}->{username}, $conf->{mail}->{password} );
+
+	say "Messajes is $num_messages" if $debug;
+
 	for my $i ( 1 .. $num_messages ) {
+
+		say "Parse $i message" if $debug;
 
 		my $msg = $pop->get($i);
 
@@ -59,9 +61,10 @@ sub load_messages() {
 		$pop->delete($i);
 	}
 	$pop->quit;
+
 	undef $pop;
 
-	unlink "$tmp_dir/*";
+	unlink  glob "$tmp_dir/*";
 }
 
 sub parse_message($) {
@@ -120,7 +123,9 @@ sub parse_file_and_send_message {
 		);
 
 	}
-	$mail->send( 'smtp', $conf->{mail}->{smtp} || 'localhost' );#, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
+	$mail->send( 'smtp', $conf->{mail}->{smtp_server} || 'localhost' );    #, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
+	say "Message sended to $conf->{mail}->{to} from $conf->{mail}->{from}" if $debug;
+	
 }
 
 sub SavePartStream {
@@ -159,7 +164,7 @@ sub FindBarcode {
 
 	my $scanner = Barcode::ZBar::ImageScanner->new();
 
-	# Включаем все возможные декодеры (по умолчанию EAN13)
+	# Enable all decoders
 	$scanner->parse_config( $conf->{typeEANcodes} || "enable" );    #Apply a decoder configuration setting. See the documentation for zbarcam/zbarimg for available configuration options.
 	                                                                # scan the image for barcodes
 	my $n       = $scanner->scan_image($image);
@@ -170,6 +175,8 @@ sub FindBarcode {
 		push @barcode, $symbol->get_data();
 
 	}
+
+	say "Find barcodes " . join( ",", @barcode ) if $debug;
 
 	# clean up
 	undef($image);
@@ -189,9 +196,8 @@ sub get_barcode_from_file {
 
 	my $magick = Image::Magick->new( depth => 8, density => $resolution, type => "Grayscale" );
 
-	my $listov = LoadPic( $magick, $file );    #кол-во листов исходя из кол-ва файлов
+	my $listov = LoadPic( $magick, $file );    #Anount pages
 
-	my $barcode   = "-";
 	my @BarRezult = ();
 
 	my @Size = $magick->Get(qw(columns rows));
@@ -202,6 +208,19 @@ sub get_barcode_from_file {
 	}
 
 	return $BarRezult[0];
+}
+
+sub daemonize {
+
+	#daemonize myself
+	chdir '/' or die "Can't chdir to /: $!";
+	umask 0;
+	open STDIN,  '/dev/null'  or die "Can't read /dev/null: $!";
+	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
+	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
+	defined( my $pid = fork ) or die "Can't fork: $!";
+	exit if $pid;
+	setsid or die "Can't start a new session: $!";
 }
 
 exit( &main(@ARGV) );
