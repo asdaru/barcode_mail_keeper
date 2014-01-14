@@ -22,7 +22,7 @@ use POSIX qw(setsid);
 
 # мониторинг осуществляется демоном incron (запись в  incrontab <целевая папка> IN_CREATE /home/asda/workspace/Home/script/arhiv/ImageMonitor.pl $@ $@/$#)
 
-my $tmp_dir  = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
+our $tmp_dir  = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
 our $conf       = do "$conffile";
 our $resolution = $conf->{resolution} || 200;
@@ -217,8 +217,8 @@ sub daemonize {
 	chdir '/' or die "Can't chdir to /: $!";
 	umask 0;
 	open STDIN,  '/dev/null'  or die "Can't read /dev/null: $!";
-	open STDOUT, ">>$tmp_dir/parse.log" or die "Can't write to $tmp_dir/parse.log: $!";
-	open STDERR, ">>$tmp_dir/err.log" or die "Can't write to $tmp_dir/err.log: $!";
+	open STDOUT, ">>/tmp/barcode_mail_keeper_parse.log" or die "Can't write to /tmp/barcode_mail_keeper_parse.log: $!";
+	open STDERR, ">>/tmp/barcode_mail_keeper_error.log" or die "Can't write to /tmp/barcode_mail_keeper_error.log: $!";
 #	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
 #	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
 	defined( my $pid = fork ) or die "Can't fork: $!";
