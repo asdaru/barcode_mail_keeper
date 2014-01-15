@@ -125,6 +125,12 @@ sub parse_file_and_send_message {
 			Subject  => "ERROR: $1.pdf",
 			Data     => "ERROR: $1.pdf"
 		);
+		$mail->attach(
+			Type        => 'application/pdf',
+			Filename    => "$1.pdf",
+			Path        => "$file",
+			Disposition => 'attachment'
+		);
 
 	}
 	$mail->send( 'smtp', $conf->{mail}->{smtp_server} || 'localhost' );    #, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
