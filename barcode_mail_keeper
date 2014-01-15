@@ -85,7 +85,7 @@ sub parse_message($) {
 			my ( $d, $m, $y ) = (localtime)[ 3 .. 5 ];
 			$filename = sprintf( "%s_%04d%02d%02d_%04d", $basefilename, $y + 1900, $m + 1, $d, ++$cnt );
 		}
-		open my $fh, ">", "$tmp_dir/$filename" or croak $!;
+		open my $fh, ">", "$tmp_dir/$filename" or croak "Error create file $tmp_dir/$filename \n$!";
 		binmode $fh;
 		print $fh $_->body;
 		close $fh;
