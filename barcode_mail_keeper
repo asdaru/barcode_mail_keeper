@@ -45,7 +45,7 @@ sub main {
 			}
 		};
 		warn "ERROR $@" if ($@);
-		sleep 5;
+		sleep ($config->{pause_betwen_loading}||5);
 	}
 
 }
