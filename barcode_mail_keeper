@@ -24,7 +24,7 @@ use POSIX qw(setsid);
 
 our $tmp_dir = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
-our $config       = do "$conffile";
+our $config     = do "$conffile";
 our $resolution = $config->{resolution} || 200;
 our $debug      = 0;
 
@@ -45,7 +45,7 @@ sub main {
 			}
 		};
 		warn "ERROR $@" if ($@);
-		sleep ($config->{pause_betwen_loading}||5);
+		sleep( $config->{pause_betwen_loading} || 5 );
 	}
 
 }
@@ -54,9 +54,9 @@ sub load_messages($) {
 	my $m_conf = shift;
 
 	my $pop = Net::POP3->new( $m_conf->{pop3_server} );
-	my $num_messages = $pop->login( $m_conf->{username}, $m_conf->{password} );
+	my $num_messages = $pop->login( $m_conf->{pop3_username}, $m_conf->{pop3_password} );
 
-	say "Messajes in box $m_conf->{username}, is $num_messages" if $debug;
+	say "Messajes in box $m_conf->{pop3_username}, is $num_messages" if $debug;
 
 	for my $i ( 1 .. $num_messages ) {
 
@@ -64,7 +64,7 @@ sub load_messages($) {
 
 		my $msg = $pop->get($i);
 
-		parse_message($m_conf,$msg);
+		parse_message( $m_conf, $msg );
 
 		$pop->delete($i);
 	}
@@ -137,7 +137,11 @@ sub parse_file_and_send_message($$) {
 		);
 
 	}
-	$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );    #, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
+	if ( $m_conf->{smtp_username} ) {
+		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost', AuthUser => $m_conf->{smtp_username}, AuthPass => $m_conf->{smtp_password} );
+	} else {
+		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );
+	}
 	say "Message sended to $m_conf->{to} from $m_conf->{from}" if $debug;
 
 }
@@ -180,7 +184,7 @@ sub FindBarcode {
 
 	# Enable all decoders
 	$scanner->parse_config( $config->{typeEANcodes} || "enable" );    #Apply a decoder configuration setting. See the documentation for zbarcam/zbarimg for available configuration options.
-	                                                                # scan the image for barcodes
+	                                                                  # scan the image for barcodes
 	my $n       = $scanner->scan_image($image);
 	my @barcode = ();
 
