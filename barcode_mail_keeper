@@ -24,8 +24,8 @@ use POSIX qw(setsid);
 
 our $tmp_dir = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
-our $conf       = do "$conffile";
-our $resolution = $conf->{resolution} || 200;
+our $config       = do "$conffile";
+our $resolution = $config->{resolution} || 200;
 our $debug      = 0;
 
 #my $logfile=join "/",File::Spec->splitdir(dirname(__FILE__)),'scan.log';
@@ -40,7 +40,9 @@ sub main {
 
 	while (1) {
 		eval {
-			load_messages();
+			foreach ( @{ $config->{mail} } ) {
+				load_messages($_);
+			}
 		};
 		warn "ERROR $@" if ($@);
 		sleep 5;
@@ -48,11 +50,13 @@ sub main {
 
 }
 
-sub load_messages() {
-	my $pop = Net::POP3->new( $conf->{mail}->{pop3_server} );
-	my $num_messages = $pop->login( $conf->{mail}->{username}, $conf->{mail}->{password} );
+sub load_messages($) {
+	my $m_conf = shift;
 
-	say "Messajes is $num_messages" if $debug;
+	my $pop = Net::POP3->new( $m_conf->{pop3_server} );
+	my $num_messages = $pop->login( $m_conf->{username}, $m_conf->{password} );
+
+	say "Messajes in box $m_conf->{username}, is $num_messages" if $debug;
 
 	for my $i ( 1 .. $num_messages ) {
 
@@ -60,7 +64,7 @@ sub load_messages() {
 
 		my $msg = $pop->get($i);
 
-		parse_message($msg);
+		parse_message($m_conf,$msg);
 
 		$pop->delete($i);
 	}
@@ -71,8 +75,8 @@ sub load_messages() {
 	unlink glob "$tmp_dir/*";
 }
 
-sub parse_message($) {
-	my $msg = shift;
+sub parse_message($$) {
+	my ( $m_conf, $msg ) = @_;
 	my $em = Email::MIME->new( join '', @$msg );
 	for ( my @parts = $em->parts ) {
 
@@ -89,26 +93,26 @@ sub parse_message($) {
 		binmode $fh;
 		print $fh $_->body;
 		close $fh;
-		parse_file_and_send_message("$tmp_dir/$filename");
+		parse_file_and_send_message( $m_conf, "$tmp_dir/$filename" );
 	}
 }
 
-sub parse_file_and_send_message {
-	my ($file) = @_;
+sub parse_file_and_send_message($$) {
+	my ( $m_conf, $file ) = @_;
 
-	my $mail;
+	my $msg;
 
 	my $barcode = get_barcode_from_file($file);
 	if ($barcode) {
-		$mail = MIME::Lite->new(
-			To => Encode::encode( 'mime-header', " <$conf->{mail}->{to}>" ),
-			From     => " <$conf->{mail}->{from}>",
+		$msg = MIME::Lite->new(
+			To => Encode::encode( 'mime-header', " <$m_conf->{to}>" ),
+			From     => " <$m_conf->{from}>",
 			Encoding => 'binary',
 			Type     => 'text/plain;charset="utf-8"',
 			Subject  => "OK: " . $barcode,
 			Data     => "OK: " . $barcode
 		);
-		$mail->attach(
+		$msg->attach(
 			Type        => 'application/pdf',
 			Filename    => "$barcode.pdf",
 			Path        => "$file",
@@ -117,15 +121,15 @@ sub parse_file_and_send_message {
 
 	} else {
 		$file =~ /^.+\/(.+)\.pdf/;
-		$mail = MIME::Lite->new(
-			To => Encode::encode( 'mime-header', " <$conf->{mail}->{to}>" ),
-			From     => " <$conf->{mail}->{from}>",
+		$msg = MIME::Lite->new(
+			To => Encode::encode( 'mime-header', " <$m_conf->{to}>" ),
+			From     => " <$m_conf->{from}>",
 			Encoding => 'binary',
 			Type     => 'text/plain;charset="utf-8"',
 			Subject  => "ERROR: $1.pdf",
 			Data     => "ERROR: $1.pdf"
 		);
-		$mail->attach(
+		$msg->attach(
 			Type        => 'application/pdf',
 			Filename    => "$1.pdf",
 			Path        => "$file",
@@ -133,8 +137,8 @@ sub parse_file_and_send_message {
 		);
 
 	}
-	$mail->send( 'smtp', $conf->{mail}->{smtp_server} || 'localhost' );    #, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
-	say "Message sended to $conf->{mail}->{to} from $conf->{mail}->{from}" if $debug;
+	$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );    #, AuthUser=>$conf->{mail}->{username}, AuthPass=>$conf->{mail}->{password});
+	say "Message sended to $m_conf->{to} from $m_conf->{from}" if $debug;
 
 }
 
@@ -175,7 +179,7 @@ sub FindBarcode {
 	my $scanner = Barcode::ZBar::ImageScanner->new();
 
 	# Enable all decoders
-	$scanner->parse_config( $conf->{typeEANcodes} || "enable" );    #Apply a decoder configuration setting. See the documentation for zbarcam/zbarimg for available configuration options.
+	$scanner->parse_config( $config->{typeEANcodes} || "enable" );    #Apply a decoder configuration setting. See the documentation for zbarcam/zbarimg for available configuration options.
 	                                                                # scan the image for barcodes
 	my $n       = $scanner->scan_image($image);
 	my @barcode = ();
@@ -195,7 +199,7 @@ sub FindBarcode {
 
 sub LoadPic {
 	my ( $magick, $file ) = @_;
-	$conf->{mincolors} = 16000 unless $conf->{mincolors};
+	$config->{mincolors} = 16000 unless $config->{mincolors};
 	my $calk_listov = 0;
 	$magick->Read($file) && die;
 	return scalar( @{$magick} )
