@@ -41,7 +41,7 @@ sub main {
 	while (1) {
 		eval {
 			foreach ( @{ $config->{mail} } ) {
-				load_messages($_);
+				load_messages($_) if $_->{pop3_server} && $_->{smtp_server};
 			}
 		};
 		warn "ERROR $@" if ($@);
