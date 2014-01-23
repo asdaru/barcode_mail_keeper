@@ -83,8 +83,9 @@ sub parse_message($$) {
 	for ( my @parts = $em->parts ) {
 
 		#print $_->content_type, "\n";
-		next unless $_->content_type =~ m(^application/pdf)i;
+		next unless $_->content_type =~ m(^application/(pdf|octet-stream))i;
 		my $filename = basename( $_->filename || '' );
+		next unless $filename =~ m(\.pdf)i;
 		my $basefilename = $filename || 'UNNAMED';
 		my $cnt = 0;
 		while ( -e "$tmp_dir/$filename" ) {
