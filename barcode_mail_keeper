@@ -34,10 +34,11 @@ open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
 
 sub main {
 	$debug = "debug" ~~ [@_];
-	$debug = 1 if $config->{debug};
-	say "Debug mode" if $debug;
 
+	say "Debug mode" if $debug;
 	daemonize() unless $debug;
+
+	$debug = 1 if $config->{debug};
 
 	while (1) {
 		eval {
@@ -235,11 +236,9 @@ sub daemonize {
 	chdir '/' or die "Can't chdir to /: $!";
 	umask 0;
 	open STDIN,  '/dev/null'                            or die "Can't read /dev/null: $!";
-	open STDOUT, ">>/tmp/barcode_mail_keeper_parse.log" or die "Can't write to /tmp/barcode_mail_keeper_parse.log: $!";
-	open STDERR, ">>/tmp/barcode_mail_keeper_error.log" or die "Can't write to /tmp/barcode_mail_keeper_error.log: $!";
+#	open STDOUT, ">>/tmp/barcode_mail_keeper_parse.log" or die "Can't write to /tmp/barcode_mail_keeper_parse.log: $!";
+#	open STDERR, ">>/tmp/barcode_mail_keeper_error.log" or die "Can't write to /tmp/barcode_mail_keeper_error.log: $!";
 
-	#	open STDOUT, '>/dev/null' or die "Can't write to /dev/null: $!";
-	#	open STDERR, '>/dev/null' or die "Can't write to /dev/null: $!";
 	defined( my $pid = fork ) or die "Can't fork: $!";
 	exit if $pid;
 	setsid or die "Can't start a new session: $!";
