@@ -57,7 +57,7 @@ sub load_messages($) {
 	my $pop = Net::POP3->new( $m_conf->{pop3_server} );
 	my $num_messages = $pop->login( $m_conf->{pop3_username}, $m_conf->{pop3_password} );
 
-	say "Messajes in box $m_conf->{pop3_username}, is $num_messages" if $debug;
+	say "Messajes in box $m_conf->{pop3_username}, is $num_messages" if $debug && $num_messages;
 
 	for my $i ( 1 .. $num_messages ) {
 
