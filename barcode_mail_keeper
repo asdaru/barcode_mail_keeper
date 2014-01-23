@@ -24,13 +24,14 @@ use POSIX qw(setsid);
 
 our $tmp_dir = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
+my $logfile=join "/",File::Spec->splitdir(dirname(__FILE__)),'scan.log';
 our $config     = do "$conffile";
 our $resolution = $config->{resolution} || 200;
 our $debug      = 0;
 
-#my $logfile=join "/",File::Spec->splitdir(dirname(__FILE__)),'scan.log';
-#open (STDOUT, ">> $logfile") or die "do not forward STDOUT to $logfile...\n";
-#open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
+open (STDOUT, ">> $logfile") or die "do not forward STDOUT to $logfile...\n";
+open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
+
 sub main {
 	$debug = "debug" ~~ [@_];
 	$debug = 1 if $config->{debug};
