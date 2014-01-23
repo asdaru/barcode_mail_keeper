@@ -145,7 +145,7 @@ sub parse_file_and_send_message($$) {
 	} else {
 		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );
 	}
-	say "Message sended to $m_conf->{to} from $m_conf->{from} file:$file, barcode:$barcode" if $debug;
+	say "Message sended to $m_conf->{to} from $m_conf->{from} file:$file, barcode:".($barcode||"") if $debug;
 
 }
 
@@ -197,7 +197,7 @@ sub FindBarcode {
 
 	}
 
-	say "Find barcodes " . join( ",", @barcode ) if $debug;
+	#say "Find barcodes " . join( ",", @barcode ) if $debug;
 
 	# clean up
 	undef($image);
