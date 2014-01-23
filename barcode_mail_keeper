@@ -33,7 +33,7 @@ our $debug      = 0;
 #open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
 sub main {
 	$debug = "debug" ~~ [@_];
-
+	$debug = 1 if $config->{debug};
 	say "Debug mode" if $debug;
 
 	daemonize() unless $debug;
@@ -142,7 +142,7 @@ sub parse_file_and_send_message($$) {
 	} else {
 		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );
 	}
-	say "Message sended to $m_conf->{to} from $m_conf->{from}" if $debug;
+	say "Message sended to $m_conf->{to} from $m_conf->{from} file:$file, barcode:$barcode" if $debug;
 
 }
 
