@@ -24,13 +24,12 @@ use POSIX qw(setsid);
 
 our $tmp_dir = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
 my $conffile = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.conf';
-my $logfile=join "/",File::Spec->splitdir(dirname(__FILE__)),'scan.log';
-our $config     = do "$conffile";
-our $resolution = $config->{resolution} || 200;
-our $debug      = 0;
+my $logfile  = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'scan.log';
+our $config = do "$conffile";
+our $debug  = 0;
 
-open (STDOUT, ">> $logfile") or die "do not forward STDOUT to $logfile...\n";
-open (STDERR, ">> $logfile") or die "do not forward STDERR to $logfile....\n";
+open( STDOUT, ">> $logfile" ) or die "do not forward STDOUT to $logfile...\n";
+open( STDERR, ">> $logfile" ) or die "do not forward STDERR to $logfile....\n";
 
 sub main {
 	$debug = "debug" ~~ [@_];
@@ -58,7 +57,7 @@ sub load_messages($) {
 	my $pop = Net::POP3->new( $m_conf->{pop3_server} );
 	my $num_messages = $pop->login( $m_conf->{pop3_username}, $m_conf->{pop3_password} );
 
-	say "Messajes in box $m_conf->{pop3_username}, is $num_messages" if $debug && $num_messages>0;
+	say "Messajes in box $m_conf->{pop3_username}, is $num_messages" if $debug && $num_messages > 0;
 
 	for my $i ( 1 .. $num_messages ) {
 
@@ -105,7 +104,7 @@ sub parse_file_and_send_message($$) {
 
 	my $msg;
 
-	my $barcode = get_barcode_from_file($file);
+	my $barcode = get_barcode_from_file( $file, $config->{resolution} || 200 );
 	if ($barcode) {
 		$msg = MIME::Lite->new(
 			To => Encode::encode( 'mime-header', " <$m_conf->{to}>" ),
@@ -145,32 +144,8 @@ sub parse_file_and_send_message($$) {
 	} else {
 		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );
 	}
-	say "Message sended to $m_conf->{to} from $m_conf->{from} file:$file, barcode:".($barcode||"") if $debug;
+	say "Message sended to $m_conf->{to} from $m_conf->{from} file:$file, barcode:" . ( $barcode || "" ) if $debug;
 
-}
-
-sub SavePartStream {
-	my ( $magick, $lastId, $SavePath, $SaveId, $barcode ) = @_;
-	$barcode =~ s/--/-/g;
-	my $stream = Image::Magick->new( depth => 8, density => $resolution );
-	for ( my $ii = 0 ; $ii <= $lastId ; $ii++ ) {
-		push @$stream, $magick->[$ii] if $magick->[$ii];
-	}
-	$stream->Write( filename => "$SavePath/document" . $SaveId . ".jpg", compression => 'JPEG', quality => '80' );
-}
-
-#Сохраняем в файл
-#Путь,Что сохраняем
-sub SaveInfoInFile {
-	{
-		my $SavePath = shift;
-		my $data     = shift;
-		my $SaveId   = shift || "";
-		my $fh;
-		open $fh, '>:utf8', $SavePath . "/currentinfo$SaveId.txt" or warn "Save current error", last;
-		print $fh $data;
-		close($fh);
-	}
 }
 
 sub FindBarcode {
@@ -213,7 +188,7 @@ sub LoadPic {
 }
 
 sub get_barcode_from_file {
-	my $file = shift;
+	my ( $file, $resolution ) = @_;
 
 	my $magick = Image::Magick->new( depth => 8, density => $resolution, type => "Grayscale" );
 
@@ -227,8 +202,11 @@ sub get_barcode_from_file {
 		my $raw = $magick->[$i]->ImageToBlob( magick => 'GRAY', depth => 8 );
 		push @BarRezult, FindBarcode( $raw, @Size );
 	}
-
-	return $BarRezult[0];
+	if ( !@BarRezult && $resolution != 200 ) {
+		return get_barcode_from_file( $file, 200 )
+	} else {
+		return $BarRezult[0];
+	}
 }
 
 sub daemonize {
@@ -236,9 +214,10 @@ sub daemonize {
 	#daemonize myself
 	chdir '/' or die "Can't chdir to /: $!";
 	umask 0;
-	open STDIN,  '/dev/null'                            or die "Can't read /dev/null: $!";
-#	open STDOUT, ">>/tmp/barcode_mail_keeper_parse.log" or die "Can't write to /tmp/barcode_mail_keeper_parse.log: $!";
-#	open STDERR, ">>/tmp/barcode_mail_keeper_error.log" or die "Can't write to /tmp/barcode_mail_keeper_error.log: $!";
+	open STDIN, '/dev/null' or die "Can't read /dev/null: $!";
+
+	#	open STDOUT, ">>/tmp/barcode_mail_keeper_parse.log" or die "Can't write to /tmp/barcode_mail_keeper_parse.log: $!";
+	#	open STDERR, ">>/tmp/barcode_mail_keeper_error.log" or die "Can't write to /tmp/barcode_mail_keeper_error.log: $!";
 
 	defined( my $pid = fork ) or die "Can't fork: $!";
 	exit if $pid;
