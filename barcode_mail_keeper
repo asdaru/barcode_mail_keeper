@@ -32,12 +32,15 @@ open( STDOUT, ">> $logfile" ) or die "do not forward STDOUT to $logfile...\n";
 open( STDERR, ">> $logfile" ) or die "do not forward STDERR to $logfile....\n";
 
 sub main {
-	$debug = "debug" ~~ [@_];
-
-	say "Debug mode" if $debug;
-	daemonize() unless $debug;
-
+	$debug = "debug" ~~ [@_] || "docker" ~~ [@_];
 	$debug = 1 if $config->{debug};
+
+	if ( "docker" ~~ [@_] ) {
+		say "Docker mode";
+	} else {
+		say "Debug mode" if $debug;
+	}
+	daemonize() unless $debug;
 
 	while (1) {
 		eval {
@@ -54,7 +57,7 @@ sub main {
 sub load_messages($) {
 	my $m_conf = shift;
 
-	my $pop = Net::POP3->new( $m_conf->{pop3_server} );
+	my $pop = Net::POP3->new( $m_conf->{pop3_server}, SSL => $m_conf->{pop3_ssl} );
 	my $num_messages = $pop->login( $m_conf->{pop3_username}, $m_conf->{pop3_password} );
 
 	say "Messajes in box $m_conf->{pop3_username}, is $num_messages" if $debug && $num_messages > 0;
@@ -142,7 +145,7 @@ sub parse_file_and_send_message($$) {
 	if ( $m_conf->{smtp_username} ) {
 		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost', AuthUser => $m_conf->{smtp_username}, AuthPass => $m_conf->{smtp_password} );
 	} else {
-		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost' );
+		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost', SSL => $m_conf->{smtp_ssl} );
 	}
 	say "Message sended to $m_conf->{to} from $m_conf->{from} file:$file, barcode:" . ( $barcode || "" ) if $debug;
 
