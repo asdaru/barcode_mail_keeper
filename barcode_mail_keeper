@@ -11,11 +11,13 @@ $| = 1;
 use File::Basename 'dirname';
 use File::Spec;
 use Image::Magick;
+
 use Barcode::ZBar;
 use Data::Dumper;
 use Net::POP3;
 use MIME::Lite;
 use Carp;
+
 use Email::MIME;
 use File::Basename;
 use POSIX qw(setsid);
@@ -85,10 +87,16 @@ sub parse_message($$) {
 	my $em = Email::MIME->new( join '', @$msg );
 	for ( my @parts = $em->parts ) {
 
-		#print $_->content_type, "\n";
-		next unless $_->content_type =~ m(^application/(pdf|octet-stream))i;
+		unless ( $_->content_type =~ m(^application/(pdf|octet-stream))i ) {
+			say "Content_type not pdf " . $_->content_type;
+			next;
+		}
+
 		my $filename = basename( $_->filename || '' );
-		next unless $filename =~ m(\.pdf)i;
+		unless ( $filename =~ m(\.pdf)i ) {
+			say "Filename not *.pdf $filename";
+			next;
+		}
 		my $basefilename = $filename || 'UNNAMED';
 		my $cnt = 0;
 		while ( -e "$tmp_dir/$filename" ) {
@@ -144,7 +152,7 @@ sub parse_file_and_send_message($$) {
 
 	}
 	if ( $m_conf->{smtp_username} ) {
-		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost', AuthUser => $m_conf->{smtp_username}, AuthPass => $m_conf->{smtp_password} );
+		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost', AuthUser => $m_conf->{smtp_username}, AuthPass => $m_conf->{smtp_password} , SSL => $m_conf->{smtp_ssl} );
 	} else {
 		$msg->send( 'smtp', $m_conf->{smtp_server} || 'localhost', SSL => $m_conf->{smtp_ssl} );
 	}

@@ -33,7 +33,13 @@ RUN apt-get update && \
 RUN cpan MIME::Lite \
 	Email::MIME \
 	MIME::Base64 \
-	IO::Socket::SSL
+	IO::Socket::SSL \
+	App::cpanminus
+	
+RUN cpanm Authen::SASL
+
+#Add SSL SUPPORT TO MIME::Lite
+RUN find /usr/local/share/perl -name Lite.pm -exec sed -i 's/my @_net_smtp_opts = qw( Hello LocalAddr LocalPort Timeout/my @_net_smtp_opts = qw( Hello LocalAddr LocalPort Timeout SSL/g' {} \; 
 
 RUN 	cd /tmp && \
 		wget ftp://ftp.imagemagick.org/pub/ImageMagick/ImageMagick.tar.gz && \
