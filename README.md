@@ -1,3 +1,13 @@
+# BARCODE MAIL KEEPER
+
+Application 
+1. Get image (pdf) file from pop3 server 
+2. Try to find barcode in image
+3. Send barcode information and image file to smtp server
+
+ 
+
+
 Start docker container:
 
 ```
