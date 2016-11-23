@@ -1,6 +1,6 @@
 # barcode_mail_keeper
 #
-# @version 	0.1
+# @version 	0.3
 # @author 	asda <asda@asda.ru>
 FROM ubuntu:16.04
 
