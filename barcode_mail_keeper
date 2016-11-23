@@ -20,6 +20,8 @@ use Email::MIME;
 use File::Basename;
 use POSIX qw(setsid);
 
+no warnings 'experimental::smartmatch';
+
 # мониторинг осуществляется демоном incron (запись в  incrontab <целевая папка> IN_CREATE /home/asda/workspace/Home/script/arhiv/ImageMonitor.pl $@ $@/$#)
 
 our $tmp_dir = join "/", File::Spec->splitdir( dirname(__FILE__) ), 'tmp';
@@ -48,7 +50,7 @@ sub main {
 				load_messages($_) if $_->{pop3_server} && $_->{smtp_server};
 			}
 		};
-		warn "ERROR $@" if ($@);
+		say "ERROR $@" if ($@);
 		sleep( $config->{pause_betwen_loading} || 5 );
 	}
 
@@ -65,7 +67,6 @@ sub load_messages($) {
 	for my $i ( 1 .. $num_messages ) {
 
 		say "Parse $i message" if $debug;
-
 		my $msg = $pop->get($i);
 
 		parse_message( $m_conf, $msg );

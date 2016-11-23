@@ -75,5 +75,5 @@ RUN chmod +x ${DIR}/barcode_mail_keeper
   
 WORKDIR ${DIR}
 
-CMD ["${DIR}/barcode_mail_keeper", "docker"]
+CMD ["/home/script/barcode_mail_keeper", "docker"]
 
