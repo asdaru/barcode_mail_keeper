@@ -25,13 +25,15 @@ RUN apt-get update && \
 		libjasper-dev \
 		libgs-dev \
 		libmagickwand-dev \
+		libssl-dev \
 		rsyslog \
 		wget \
 		nano
 		
 RUN cpan MIME::Lite \
 	Email::MIME \
-	MIME::Base64
+	MIME::Base64 \
+	IO::Socket::SSL
 
 RUN 	cd /tmp && \
 		wget ftp://ftp.imagemagick.org/pub/ImageMagick/ImageMagick.tar.gz && \
@@ -49,7 +51,9 @@ RUN 	cd /tmp && \
  		./configure --without-qt --without-gtk --without-python --disable-video && \
  		make install && \
  		cd perl && \
- 		perl Makefile.PL		
+ 		perl Makefile.PL && \
+ 		make install && \
+ 		ldconfig /usr/local/lib 		
 
 		
 RUN apt-get clean
@@ -71,5 +75,5 @@ RUN chmod +x ${DIR}/barcode_mail_keeper
   
 WORKDIR ${DIR}
 
-CMD ${DIR}/barcode_mail_keeper docker
+CMD ["${DIR}/barcode_mail_keeper", "docker"]
 
