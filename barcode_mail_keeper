@@ -195,7 +195,10 @@ sub LoadPic {
 	my ( $magick, $file ) = @_;
 	$config->{mincolors} = 16000 unless $config->{mincolors};
 	my $calk_listov = 0;
-	$magick->Read($file) && die;
+	unless ($magick->Read($file)){
+		say "Error read $file";
+		return undef;
+	}
 	return scalar( @{$magick} )
 }
 
@@ -205,7 +208,9 @@ sub get_barcode_from_file {
 	my $magick = Image::Magick->new( depth => 8, density => $resolution, type => "Grayscale" );
 
 	my $listov = LoadPic( $magick, $file );    #Anount pages
-
+	
+	return "" unless $listov
+	
 	my @BarRezult = ();
 
 	my @Size = $magick->Get(qw(columns rows));
