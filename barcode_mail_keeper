@@ -209,7 +209,7 @@ sub get_barcode_from_file {
 
 	my $listov = LoadPic( $magick, $file );    #Anount pages
 	
-	return "" unless $listov
+	return "" unless $listov;
 	
 	my @BarRezult = ();
 
