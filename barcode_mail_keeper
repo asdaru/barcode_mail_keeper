@@ -195,8 +195,8 @@ sub LoadPic {
 	my ( $magick, $file ) = @_;
 	$config->{mincolors} = 16000 unless $config->{mincolors};
 	my $calk_listov = 0;
-	unless ($magick->Read($file)){
-		say "Error read $file";
+	if (my $err=$magick->Read($file)){
+		say "Error read $file $err";
 		return undef;
 	}
 	return scalar( @{$magick} )
@@ -209,7 +209,7 @@ sub get_barcode_from_file {
 
 	my $listov = LoadPic( $magick, $file );    #Anount pages
 	
-	return "" unless $listov;
+	return undef unless $listov;
 	
 	my @BarRezult = ();
 
